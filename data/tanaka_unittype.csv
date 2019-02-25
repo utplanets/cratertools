@@ -1,0 +1,45 @@
+name,red,green,blue,unit
+mAl, 190,191,77,Lowland
+lHl, 152,195,84,Lowland
+AHi, 253,240,80,Impact
+lApc,221,240,250,Polar
+Hp,   68,153,175,Polar
+lApd,251,233,191,Polar
+Hpu, 138,172,186,Polar
+Apu, 160,179,188,Polar
+Hpe,  59,136,201,Polar
+Ap,   68,153,197,Polar
+eAb, 165,210,193,Basin
+lHb, 163,178,160,Basin
+eHb,  92,159,170,Basin
+HNb, 122,164,159,Basin
+lAv, 240,192,185,Volcanic
+lHv, 190,128,153,Volcanic
+eHv, 170,124,176,Volcanic
+lNv, 134,130,185,Volcanic
+lAvf,200,177,167,Volcanic
+Av,  237,173,160,Volcanic
+lHvf,193,159,145,Volcanic
+AHv, 234,154,115,Volcanic
+Hve, 227,117,57,Volcanic
+Ave, 193,127,96,Volcanic
+Nve, 184, 53,51,Volcanic
+lAa, 248,215,73,Volcanic
+Aa,  233,209,73,Apron
+ANa, 183,165,72,Apron
+AHtu,232,227,217,Transition
+Htu, 218,212,209,Transition
+lHt, 246,203,71,Transition
+eHt, 216,176,69,Transition
+Ht,  249,222,170,Transition
+Hto, 181,223,246,Transition
+HNt, 237,168,65,Transition
+HNhu,201,194,191,Highland
+Nhu, 179,169,166,Highland
+eHh, 228,203,178,Highland
+lNh, 201,175,140,Highland
+mNh, 197,159,132,Highland
+eNh, 177,137,101,Highland
+Nhe, 152, 53,77,Highland
+mNhm,160,163,152,Highland
+eNhm,141,142,131,Highland

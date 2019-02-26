@@ -1,6 +1,5 @@
 import logging
 import sys
-import click
 
 
 def rasterize(filename, output_filename, hdf_output,resolution=1./128,scale=128):

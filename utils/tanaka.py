@@ -4,7 +4,7 @@
 import sys
 import click
 import cratertools.utils.tanaka as tanaka
-import cratertools.utils.salamuniccar as salamuniccar
+import cratertools.utils.salamuniccar as sal
 
 
 @click.group()
@@ -23,13 +23,16 @@ def tanaka_rasterize(filename, output_filename, hdf_output, scale):
     return 0
 
 
+def csv(x):
+    return x.split(",")
+
 @cli.command()
 @click.argument("filename", type=str)
-@click.option("--tables", nargs=+, default=None)
+@click.option("--tables", type=str, default=None)
 @click.option("--output_prefix", type=str, default=None)
 @click.option("--output_filename", type=str, default=None)
 def salamuniccar(filename, tables, output_prefix, output_filename):
-    salamuniccar.extract_salamuniccar(filename,
+    sal.extract_salamuniccar(filename,
                                       tables=tables,
                                       output_prefix=output_prefix,
                                       output_filename=output_filename)
@@ -40,7 +43,7 @@ def salamuniccar(filename, tables, output_prefix, output_filename):
 @click.argument("filename", type=str)
 @click.option("--output_filename", type=str, default=None)
 def robbins(filename, output_filename):
-    salamuniccar.extract_robbins(filename, output_filename)
+    sal.extract_robbins(filename, output_filename)
     return 0
 
 

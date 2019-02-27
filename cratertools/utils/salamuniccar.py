@@ -12,7 +12,7 @@ def extract_salamuniccar(filename, tables=None,
     logging.basicConfig(level=logging.INFO)
     logger.info("Reading Excel file")
     logger.info(output_filename)
-    dfe = pd.ExcelFile(filename)  # "GoranSalamuniccar_MarsCraters/MA132843GT/original_files/MA132843GT.xlsx")
+    dfe = pd.ExcelFile(filename)
     names = [x for x in dfe.sheet_names if
              x != "YourCatalogue" and x != "Macros"]
 
@@ -45,7 +45,8 @@ def extract_salamuniccar(filename, tables=None,
             # warp the longitude
             df["Long"][df["Long"] > 180] -= 360
             df = df.dropna()
-            df.to_hdf(output_filename, name, append=os.path.exists(output_filename), complevel=5)
+            df.to_hdf(output_filename, name,
+                      append=os.path.exists(output_filename), complevel=5)
 
 
 def extract_robbins(filename, output_filename=None):
@@ -64,4 +65,5 @@ def extract_robbins(filename, output_filename=None):
     robbins = robbins[k]
     robbins.rename(columns=dict(zip(k, v)), inplace=True)
     if output_filename is not None:
-        robbins.to_hdf(output_filename, "/Robbins", append=os.path.exists(output_filename), index=False)
+        robbins.to_hdf(output_filename, "/Robbins",
+                       append=os.path.exists(output_filename), index=False)

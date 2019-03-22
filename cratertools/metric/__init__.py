@@ -1,4 +1,9 @@
 from sklearn.neighbors import NearestNeighbors
+import numpy as np
+import pandas as pd
+
+import logging
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 _thresh_longlat2 = 0.25
 _thresh_rad = 0.25
@@ -35,8 +40,129 @@ def metrics(table):
     table["f1"] = 2*(r*p)/(r + p)
     return table
 
+def errmet(data, arad=3391):
+    ckd = 180. / (np.pi*arad)
+    xp, xg = data["A_Long"], data["B_Long"]
+    yp, yg = data["A_Lat"], data["B_Lat"]
 
+    rp, rg = data["A_Diameter (km)"], data["B_Diameter (km)"]
+    lm = 0.5*(yp+yg)
+    dlon = np.abs(xp-xg)*np.cos(np.deg2rad(lm))/(rg*ckd)
+    dlat = np.abs(yp-yg)/(rg*ckd)
+    dr = np.abs(rp-rg)/rg
+    return np.percentile(dlon,[25,50,75]),np.percentile(dlat,[25,50,75]),np.percentile(dr,[25,50,75])
 
+def global_metric(matched_data, matched_count, craters_B, arad=3391):
+    q=(np.array(matched_count) == 0)
+
+    tp = np.sum(np.array(matched_count) > 0)
+    fp = np.sum(np.array(matched_count) == 0)
+    fn = len(craters_B) - tp
+
+    mm = pd.DataFrame(metrics(dict(N_match=tp,
+                                   N_detect=tp+fp,
+                                   N_csv=tp+fn)),
+                      index=['data'])
+    mm['precision']*=100
+    mm['recall']*=100
+
+    met = errmet(matched_data, arad=arad)
+    m25, med, m75 = [np.array(a) for a in zip(*met)]
+
+    mm["err_lo"], mm["err_la"], mm["err_r"] = med
+
+    m25 = pd.DataFrame(m25,
+                       index=["err_lo","err_la","err_r"],
+                       columns=["data 25"])
+    m75 = pd.DataFrame(m75,
+                       index=["err_lo","err_la","err_r"],
+                       columns=["data 75"])
+
+    return pd.concat([mm.T,m25,m75],axis=1)
+
+def filter_craters(craters, indices, matches=1,
+                   radius=3391, 
+                   thresh_rad=_thresh_rad,
+                   thresh_longlat2=_thresh_longlat2):
+
+    k2d = 180. / (np.pi * radius)       # km to deg                                                                             
+    duplicate_craters = dict()
+    reverse_craters = dict()
+    from tqdm import tqdm
+    used = set()
+    for iloc, index in enumerate(indices[:]):
+        loc, remainder = iloc, index
+        all_lo, all_la, all_rad = craters[index].T
+        lo, la, rad = craters[iloc].T
+        Long, Lat, Rad = all_lo[:], all_la[:], all_rad[:]
+        
+        minr = np.where(rad < Rad, rad, Rad)
+        
+        la_m = 0.5 * (la + all_la)
+        dL = (((Long - lo) * np.cos(np.deg2rad(la_m)) / (0.5 * minr * k2d))**2
+              + ((Lat - la) / (0.5 * minr * k2d))**2)
+        dR = np.abs(Rad - rad) / minr
+        w = np.where((dR < thresh_rad) & (dL < thresh_longlat2))
+        if len(w[0]) >= matches:
+            #proposed_used = index[w]
+            #new_used = set(proposed_used) - used
+            #used+=new_used
+            save = []
+            for i in index[w]:
+                if i not in reverse_craters:
+                    save.append(i)
+                    reverse_craters[i] = loc
+            if len(save):
+                duplicate_craters[loc] = save
+    rc = np.zeros(len(duplicate_craters)*3).reshape((len(duplicate_craters),3))
+
+    for i,k in enumerate(duplicate_craters.keys()):
+        rc[i] = craters[duplicate_craters[k]][0]#.mean(axis=0)
+
+    rc = pd.DataFrame(rc,
+                      columns=['x','y','r'])
+    
+    return rc, reverse_craters, duplicate_craters
+
+def rep_filter_unique_craters(incraters,
+                              x='x', y='y', r='r', matches=1,
+                              max_neighbours=8,max_iter=8,
+                              radius=3391, 
+                              thresh_rad=_thresh_rad,
+                              thresh_longlat2=_thresh_longlat2):
+
+    craters = incraters[~incraters.duplicated(subset=[x,y,r])]
+    iteration = 0
+    rcs = 0
+
+    while iteration < max_iter:
+        kn_craters = np.array([np.deg2rad(craters[x])*radius*np.cos(np.deg2rad(craters[y])),
+                  np.deg2rad(craters[y])*radius,
+                  360*craters[r]/(radius*2*np.pi*np.cos(np.deg2rad(craters[y])))
+                 ]).T
+
+        neighbours = max_neighbours if max_neighbours < len(craters) else len(craters)
+
+        nbrs = NearestNeighbors(n_neighbors=neighbours, algorithm='ball_tree').fit(kn_craters)
+
+        data,indices = nbrs.kneighbors(kn_craters)
+
+        cc=craters[[x,y,r]].values
+
+        craters, un, dup = filter_craters(cc,
+                                          indices,
+                                          matches=matches,
+                                          radius=radius,
+                                          thresh_rad=thresh_rad,
+                                          thresh_longlat2=thresh_longlat2)
+        craters.columns = [x,y,r]
+
+        if len(craters) == rcs or iteration == max_iter:
+            break
+        rcs = len(craters)
+        iteration += 1
+  
+    return craters, un, dup, data, indices
 
 def match_craters(craters_A, craters_B, indices, thresh_longlat2, thresh_rad, radius=3391):
     """Match craters between two datasets in three dimensions.
@@ -64,7 +190,7 @@ def match_craters(craters_A, craters_B, indices, thresh_longlat2, thresh_rad, ra
         # extract the target crater from the A list, and possible matches from
         # the B list according to the indices
         lo, la, rad = craters_A[loc, :]
-        all_lo, all_la, all_rad = crater_B[index].T
+        all_lo, all_la, all_rad = craters_B[index].T
 
         Long, Lat, Rad = all_lo[:], all_la[:], all_rad[:]
 
@@ -114,7 +240,8 @@ def match_craters(craters_A, craters_B, indices, thresh_longlat2, thresh_rad, ra
     # a list of the unique craters 
     return rc, reverse_craters, duplicate_craters, unique
 
-def kn_match_craters(craters_A, craters_B, x='x', y='y', r='r',  max_neighbours=10, radius=3391):
+def kn_match_craters(craters_A, craters_B, x='x', y='y', r='r',  max_neighbours=10, radius=3391, 
+                     thresh_rad=_thresh_rad, thresh_longlat2=_thresh_longlat2):
     """Match craters between two data sets in three dimensions.
 
     Uses a K Nearest Neighbours algorithm to cluster small groups, then matches the closest
@@ -134,7 +261,8 @@ def kn_match_craters(craters_A, craters_B, x='x', y='y', r='r',  max_neighbours=
 
 
     """
-
+    logger = logging.getLogger()
+    logger.info("kn_match_craters: max_neighbours={}, radius={}, thresh_rad={}, thresh_longlat={}".format(max_neighbours, radius, thresh_rad, thresh_longlat2))
     ca = np.cos(np.deg2rad(craters_A[y]))
     kn_A = np.array([np.deg2rad(craters_A[x])*radius*ca,
                      np.deg2rad(craters_A[y])*radius,
@@ -148,10 +276,10 @@ def kn_match_craters(craters_A, craters_B, x='x', y='y', r='r',  max_neighbours=
                      ]).T
 
     # Sanity check for number of neighbours
-    neighbours = max([len(craters_A), len(craters_B), max_neighbours])
+    neighbours = min([len(craters_A), len(craters_B), max_neighbours])
 
     cA = craters_A[[x, y, r]].values
-    cb = craters_B[[x, y, r]].values
+    cB = craters_B[[x, y, r]].values
 
     if len(craters_A) > max_neighbours and len(craters_B) > max_neighbours:
         nbrs = NearestNeighbors(n_neighbors=neighbours,
@@ -160,10 +288,9 @@ def kn_match_craters(craters_A, craters_B, x='x', y='y', r='r',  max_neighbours=
     else:
         indices = [np.arange(len(cB))]*len(cA)
         data = None
-
     rc, un, dup, unique = match_craters(cA, cB, indices,
-                                        _thresh_longlat2,
-                                        _thresh_rad,
+                                        thresh_longlat2,
+                                        thresh_rad,
                                         radius=radius)
     # rc.columns = ["robbins_"+x, "robbins_"+y, "robbins_"+r, x, y, r, 'l']
     rc.columns = ["B_"+x, "B_"+y, "B_"+r, "A_"+x, "A_"+y, "A_"+r, 'l']

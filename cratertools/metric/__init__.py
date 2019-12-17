@@ -5,7 +5,8 @@ import pandas as pd
 import logging
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-_thresh_longlat2 = 0.25
+# matching non-tunable
+_thresh_longlat2 = 0.5
 _thresh_rad = 0.25
 
 
@@ -90,7 +91,7 @@ def filter_craters(craters, indices, matches=1,
     reverse_craters = dict()
     from tqdm import tqdm
     used = set()
-    for iloc, index in enumerate(indices[:]):
+    for iloc, index in tqdm(enumerate(indices[:]), total=len(indices)):
         loc, remainder = iloc, index
         all_lo, all_la, all_rad = craters[index].T
         lo, la, rad = craters[iloc].T
@@ -116,7 +117,7 @@ def filter_craters(craters, indices, matches=1,
                 duplicate_craters[loc] = save
     rc = np.zeros(len(duplicate_craters)*3).reshape((len(duplicate_craters),3))
 
-    for i,k in enumerate(duplicate_craters.keys()):
+    for i,k in tqdm(enumerate(duplicate_craters.keys()), total=len(duplicate_craters.keys())):
         rc[i] = craters[duplicate_craters[k]][0]#.mean(axis=0)
 
     rc = pd.DataFrame(rc,

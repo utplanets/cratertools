@@ -45,7 +45,7 @@ setup(
     include_package_data=True,
     keywords='cratertools',
     name='cratertools',
-    packages=find_packages(include=['cratertools']),
+    packages=["cratertools.metric"],
     package_data={'cratertools': ['data/*.csv']},
     setup_requires=setup_requirements,
     test_suite='tests',
